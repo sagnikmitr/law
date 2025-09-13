@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="icon" type="image/x-icon" href="compliant.png">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Section Converter</title>
@@ -17,7 +18,7 @@
   .card{border:1px solid var(--border);border-radius:var(--radius);background:#fff;padding:12px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0 10px}
   .opt{border:1px solid var(--border);border-radius:10px;background:#fff;padding:10px 12px;font-weight:600;font-size:14px;text-align:center;cursor:pointer}
-  .opt[aria-pressed="true"]{border-color:#cfe0ff;background:#f5f9ff;color:#09326e}
+  .opt[aria-pressed="true"]{border-color:#7ba4f1;background:#ddebfe;color:#09326e}
   .search{display:flex;gap:8px;align-items:center}
   input[type="text"]{flex:1;height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:16px}
   button.primary{height:44px;padding:10px 14px;border:none;border-radius:10px;font-weight:700;font-size:14px;background:var(--accent);color:#fff;cursor:pointer}
@@ -83,11 +84,6 @@
 
       <div class="status" id="status" role="status">Loading JSON…</div>
     </div>
-
-    <footer>
-      <div>Keep this file with <code>ipc.json</code>, <code>crpc.json</code>, <code>iea.json</code>.</div>
-      <div>simple • fast</div>
-    </footer>
   </div>
 
 <script>
