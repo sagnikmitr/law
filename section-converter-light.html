@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Section Converter</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#0b0f14; --muted:#5c6b7a; --border:#e6e9ee; --accent:#0d6efd;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";background:#fff;color:var(--fg)}
+  .wrap{max-width:720px;margin:0 auto;padding:16px}
+  header{display:flex;gap:10px;align-items:center;padding:8px 0 12px}
+  h1{font-size:18px;margin:0}.sub{font-size:12px;color:var(--muted)}
+  .card{border:1px solid var(--border);border-radius:var(--radius);background:#fff;padding:12px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0 10px}
+  .opt{border:1px solid var(--border);border-radius:10px;background:#fff;padding:10px 12px;font-weight:600;font-size:14px;text-align:center;cursor:pointer}
+  .opt[aria-pressed="true"]{border-color:#cfe0ff;background:#f5f9ff;color:#09326e}
+  .search{display:flex;gap:8px;align-items:center}
+  input[type="text"]{flex:1;height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:16px}
+  button.primary{height:44px;padding:10px 14px;border:none;border-radius:10px;font-weight:700;font-size:14px;background:var(--accent);color:#fff;cursor:pointer}
+  .help{font-size:12px;color:var(--muted);margin-top:6px}
+  .results{margin-top:10px}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .col{flex:1 1 280px;min-width:260px}
+  .panel{border:1px solid var(--border);border-radius:10px;padding:10px;background:#fff}
+  .k{font-size:12px;color:var(--muted)} .v{font-size:16px;font-weight:800;margin-top:4px}
+  .meta{font-size:13px;color:#3a4754;margin-top:6px;line-height:1.45;word-break:break-word}
+  /* snippet clamp */
+  .snippet{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .toggle{display:inline-block;margin-top:6px;font-size:13px;color:#0d6efd;cursor:pointer}
+  .copy{margin-left:auto;border:1px solid var(--border);background:#f8fafc;border-radius:10px;height:36px;padding:0 10px;font-weight:700;cursor:pointer}
+  .status{margin-top:10px;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#f8fafc}
+  footer{margin-top:10px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Section Converter</h1>
+        <div class="sub">by Tapas Kumar Mitra</div>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="grid" id="options" role="tablist" aria-label="Conversion direction"></div>
+
+      <div class="search" role="search">
+        <input id="input" type="text" inputmode="latin" autocapitalize="characters" placeholder="Enter section (e.g., 197 or 197A)">
+        <button id="findBtn" class="primary">Find</button>
+      </div>
+      <div class="help">Type “197” or “Section 197A”. You can include or omit the code label.</div>
+
+      <div class="results" id="results" hidden>
+        <div class="row">
+          <div class="col">
+            <div class="panel">
+              <div class="k" id="fromLabel">From</div>
+              <div class="v" id="fromValue">—</div>
+              <div class="meta" id="fromMeta"></div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="panel">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div>
+                  <div class="k" id="toLabel">To</div>
+                  <div class="v" id="toValue">—</div>
+                </div>
+                <button class="copy" id="copyBtn" title="Copy target section">Copy</button>
+              </div>
+              <div class="meta">
+                <span id="toMeta" class="snippet"></span>
+                <a id="moreBtn" class="toggle" hidden>Know more</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="status" id="status" role="status">Loading JSON…</div>
+    </div>
+
+    <footer>
+      <div>Keep this file with <code>ipc.json</code>, <code>crpc.json</code>, <code>iea.json</code>.</div>
+      <div>simple • fast</div>
+    </footer>
+  </div>
+
+<script>
+(() => {
+  // JSONs map OLD->NEW where NEW value string begins with the target section number then description.
+  const pairs = [
+    {id:'ipc-bns',  label:'IPC → BNS',   file:'ipc.json',  from:'IPC',  to:'BNS',  mode:'forward'},
+    {id:'bns-ipc',  label:'BNS → IPC',   file:'ipc.json',  from:'BNS',  to:'IPC',  mode:'reverse'},
+    {id:'crpc-bnss',label:'CrPC → BNSS', file:'crpc.json', from:'CrPC', to:'BNSS', mode:'forward'},
+    {id:'bnss-crpc',label:'BNSS → CrPC', file:'crpc.json', from:'BNSS', to:'CrPC', mode:'reverse'},
+    {id:'iea-bsa',  label:'IEA → BSA',   file:'iea.json',  from:'IEA',  to:'BSA',  mode:'forward'},
+    {id:'bsa-iea',  label:'BSA → IEA',   file:'iea.json',  from:'BSA',  to:'IEA',  mode:'reverse'},
+  ];
+
+  // --- UI ---
+  const optionsEl = document.getElementById('options');
+  const makeBtn = (p, pressed) => {
+    const b = document.createElement('button');
+    b.className='opt'; b.type='button'; b.role='tab';
+    b.ariaPressed = pressed ? 'true':'false';
+    b.textContent = p.label;
+    b.addEventListener('click', () => select(p.id));
+    return b;
+  };
+  let active = pairs[0].id;
+  function renderOptions(){ optionsEl.innerHTML=''; pairs.forEach(p=>optionsEl.appendChild(makeBtn(p,p.id===active))) }
+
+  const inputEl=document.getElementById('input');
+  const findBtn=document.getElementById('findBtn');
+  const resultsEl=document.getElementById('results');
+  const statusEl=document.getElementById('status');
+  const fromLabel=document.getElementById('fromLabel');
+  const fromValue=document.getElementById('fromValue');
+  const fromMeta=document.getElementById('fromMeta');
+  const toLabel=document.getElementById('toLabel');
+  const toValue=document.getElementById('toValue');
+  const toMeta=document.getElementById('toMeta');
+  const copyBtn=document.getElementById('copyBtn');
+  const moreBtn=document.getElementById('moreBtn');
+
+  function select(id){
+    active=id; renderOptions(); updateLabels(); resultsEl.hidden=true; inputEl.focus();
+  }
+  function updateLabels(){
+    const cfg = pairs.find(q=>q.id===active);
+    fromLabel.textContent = `From (${cfg.from})`;
+    toLabel.textContent   = `To (${cfg.to})`;
+  }
+
+  // Normalize inputs
+  const dropWords=/^(section\s+)?(ipc|bns|crpc|bnss|iea|bsa)\s*/i;
+  const norm = s => String(s||'').trim().replace(dropWords,'').replace(/\s+/g,'').replace(/[.]/g,'').toUpperCase();
+
+  // Extract target section and description from a value string like "339. Title : …" or "339(1)…"
+  function splitValue(v){
+    const s = String(v||'').trim();
+    const m = s.match(/^\s*([0-9A-Za-z()[\]\/.\-]+)\s*[:.)-]?\s*(.*)$/); // token + rest
+    if(m){ return { token: m[1].toUpperCase(), desc: m[2] || '' }; }
+    return { token: '', desc: s };
+  }
+
+  // Load JSONs
+  const dataCache={}; // filename -> { forwardMap: Map(nOld->rawVal), reverseIndex: Map(nNewToken->oldRaw), details: Map(nNewToken->desc) }
+  async function preload(){
+    const files=['ipc.json','crpc.json','iea.json'];
+    let ok=true, messages=[];
+    for(const f of files){
+      try{
+        const res = await fetch(f,{cache:'no-store'}); if(!res.ok) throw new Error();
+        const json = await res.json();
+        const obj = Array.isArray(json) ? Object.fromEntries(json.map(x=>{
+          if(x && typeof x==='object'){
+            const k = x.ipc||x.crpc||x.iea||x.old||x.from||x.source;
+            const v = x.bns||x.bnss||x.bsa||x.new||x.to||x.target;
+            return [String(k), String(v)];
+          }
+          if(typeof x==='string'){
+            const m=x.match(/^\s*([A-Za-z0-9()]+)\s*[:=\-→]\s*(.+)\s*$/); return m ? [m[1], m[2]] : null;
+          }
+          return null;
+        }).filter(Boolean)) : json;
+
+        const forwardMap=new Map(); const reverseIndex=new Map(); const details=new Map();
+        Object.keys(obj).forEach(k=>{
+          const rawVal = obj[k];
+          const nOld = norm(k);
+          const {token, desc} = splitValue(rawVal);
+          if(nOld){ forwardMap.set(nOld, String(rawVal)); }
+          if(token){ reverseIndex.set(norm(token), String(k)); details.set(norm(token), desc); }
+        });
+        dataCache[f]={forwardMap, reverseIndex, details};
+      }catch{
+        ok=false; messages.push(`Missing/unreadable: ${f}`);
+      }
+    }
+    setStatus(ok?'Ready.':messages.join(' · '), !ok);
+    return ok;
+  }
+
+  function lookup(){
+    const cfg=pairs.find(q=>q.id===active);
+    const pack=dataCache[cfg.file];
+    if(!pack){ setStatus(`Data not loaded for ${cfg.file}`, true); return; }
+
+    const term=norm(inputEl.value);
+    if(!term){ setStatus('Please enter a section number.', true); return; }
+
+    let fromDisplay=`${cfg.from} ${term}`, toDisplay='—', description='';
+
+    if(cfg.mode==='forward'){
+      // OLD -> value (starts with NEW section)
+      const raw = pack.forwardMap.get(term);
+      if(!raw){ setStatus(`No mapping found for ${cfg.from} ${term}.`, true); return; }
+      const {token, desc} = splitValue(raw);
+      if(!token){ setStatus(`No target section parsed for ${cfg.from} ${term}.`, true); return; }
+      toDisplay = `${cfg.to} ${token}`;
+      description = desc;
+    }else{
+      // Reverse: match input against NEW token
+      const oldRaw = pack.reverseIndex.get(term);
+      if(!oldRaw){ setStatus(`No mapping found for ${cfg.from} ${term}.`, true); return; }
+      toDisplay = `${cfg.to} ${norm(oldRaw)}`;
+      description = pack.details.get(term) || '';
+    }
+
+    // Render
+    fromValue.textContent = fromDisplay;
+    toValue.textContent   = toDisplay;
+
+    if(description){
+      toMeta.textContent = description;
+      toMeta.classList.add('snippet'); // start clamped
+      moreBtn.hidden = false;
+      moreBtn.textContent = 'Know more';
+      moreBtn.onclick = () => {
+        const isClamped = toMeta.classList.contains('snippet');
+        if(isClamped){ toMeta.classList.remove('snippet'); moreBtn.textContent='Show less'; }
+        else{ toMeta.classList.add('snippet'); moreBtn.textContent='Know more'; }
+      };
+    }else{
+      toMeta.textContent = '';
+      moreBtn.hidden = true;
+    }
+
+    resultsEl.hidden=false;
+    setStatus('Search complete.');
+    copyBtn.onclick = async () => {
+      try{ await navigator.clipboard.writeText(toDisplay); copyBtn.textContent='Copied'; setTimeout(()=>copyBtn.textContent='Copy',900);}catch{}
+    };
+  }
+
+  function setStatus(msg,isError=false){
+    statusEl.textContent=msg;
+    statusEl.style.background=isError?'#fff5f5':'#f8fafc';
+    statusEl.style.borderColor=isError?'#ffd7d7':'var(--border)';
+    statusEl.style.color=isError?'#7a0c0c':'inherit';
+  }
+
+  renderOptions(); updateLabels(); preload();
+  findBtn.addEventListener('click', lookup);
+  inputEl.addEventListener('keydown', e=>{ if(e.key==='Enter') lookup(); });
+})();
+</script>
+</body>
+</html>
